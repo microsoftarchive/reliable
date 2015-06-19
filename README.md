@@ -1,7 +1,7 @@
 # Reliable is.
 
-Redis is a great storage for building a reliable queue. That's what this
-is for.
+Redis is a great storage service for building a reliable queue. That's
+what this is for.
 
 ## Configuring redis
 
@@ -34,7 +34,6 @@ many queues as they like.
 ```ruby
 Reliable[:messages].each do |message|
   hash = JSON.generate(message)
-
   DatabaseTable.find(hash["id"]).do_something_awesome(message)
 end
 ```
