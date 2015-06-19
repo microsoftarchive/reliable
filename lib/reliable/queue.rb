@@ -113,10 +113,10 @@ module Reliable
     end
 
     def fetch_item
-      uuid = redis.call! "BRPOPLPUSH", pending.key, processing.key, POP_TIMEOUT
+      uuid = synchronize { redis.call!("BRPOPLPUSH", pending.key, processing.key, POP_TIMEOUT) }
 
       if uuid
-        [uuid, redis.call!("GET", uuid)]
+        [uuid, synchronize { redis.call!("GET", uuid) }]
       else
         [nil, nil]
       end
