@@ -3,6 +3,10 @@
 Redis is a great storage service for building a reliable queue. That's
 what this is for.
 
+## Is this like [Ost](https://github.com/soveran/ost)?
+
+Ost was the inspiration for this project. We love ost, but it lacks a few of the nice things we want (retry, failures count, etc) and will will implement those extra features here. We also wanted parallelism baked in.
+
 ## Configuring redis
 
 Reliable uses `Redic`.
