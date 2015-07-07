@@ -1,7 +1,6 @@
 require_relative 'reliable/version'
 require_relative 'reliable/queue'
-
-require 'redic'
+require_relative 'reliable/redis'
 
 module Reliable
   POP_TIMEOUT = ENV.fetch("RELIABLE_TIMEOUT", "2").to_i
@@ -27,7 +26,7 @@ module Reliable
   end
 
   def self.redis=(new_redis)
-    @redis = new_redis
+    @redis = Reliable::Redis.new(new_redis)
   end
 
   class NullLogger
