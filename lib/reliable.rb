@@ -1,3 +1,4 @@
+require_relative 'reliable/version'
 require_relative 'reliable/queue'
 
 require 'redic'
@@ -27,5 +28,21 @@ module Reliable
 
   def self.redis=(new_redis)
     @redis = new_redis
+  end
+
+  class NullLogger
+    def debug(*); end
+    def info(*); end
+    def error(*); end
+    def warn(*); end
+    def fatal(*); end
+  end
+
+  def self.logger
+    @logger ||= NullLogger.new
+  end
+
+  def self.logger=(new_logger)
+    @logger = new_logger
   end
 end

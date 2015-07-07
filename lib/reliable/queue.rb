@@ -1,3 +1,5 @@
+require 'logger'
+
 require_relative '../reliable'
 require_relative 'clock'
 require_relative 'list'
@@ -171,11 +173,15 @@ module Reliable
       raise
     end
 
+    def logger
+      Reliable.logger
+    end
+
     def notify(e, other = {})
       # TODO: make configurable
-      Rails.logger.info e.inspect
-      Rails.logger.info e.backtrace
-      Rails.logger.info other.inspect
+      logger.info e.inspect
+      logger.info e.backtrace
+      logger.info other.inspect
     end
   end
 end
