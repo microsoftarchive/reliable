@@ -5,7 +5,7 @@ describe Reliable::Queue do
   let(:queue) { described_class.new(name) }
 
   def get_keys
-    Reliable.redis.call "KEYS", "*"
+    Reliable.redis.keys "*"
   end
 
   def select_keys(&blk)
@@ -18,7 +18,6 @@ describe Reliable::Queue do
 
   describe "writing and reading" do
     before do
-      queue.redis.call "FLUSHDB"
       queue.push(1)
       queue.push(5)
       queue.push(2)
@@ -32,7 +31,6 @@ describe Reliable::Queue do
   describe "#pending" do
     context "with values pushed on" do
       before do
-        queue.redis.call "FLUSHDB"
         queue.push(1)
         queue.push(5)
         queue.push(2)
@@ -48,7 +46,6 @@ describe Reliable::Queue do
 
     context "with values pushed on and taken off" do
       before do
-        queue.redis.call "FLUSHDB"
         queue.push(1)
         queue.push(5)
         queue.push(2)
@@ -67,7 +64,6 @@ describe Reliable::Queue do
   describe "#failures" do
     context "with values pushed on" do
       before do
-        queue.redis.call "FLUSHDB"
         queue.push("fail")
         queue.push("succeed")
         queue.take(2) { |item| raise("wat") if item == "fail" }
@@ -82,7 +78,6 @@ describe Reliable::Queue do
 
     context "take multiple failures" do
       before do
-        queue.redis.call "FLUSHDB"
         queue.push "succeed"
         queue.push "fail"
         queue.push "fail"

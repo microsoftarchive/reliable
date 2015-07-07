@@ -9,20 +9,14 @@ module Reliable
   class Queue
     FatalError = Class.new(StandardError)
 
-    attr_reader :clock
-
-    def initialize(name)
+    def initialize(name, redis = Reliable.redis)
       base_key = "reliable:queues:#{name}"
+      @redis = redis
       @pending_key = base_key + ":pending"
       @processing_key = base_key + ":processing"
       @failed_processing_key = base_key + ":failed:processing"
       @failed_removing_key = base_key + ":failed:removing"
-      @clock = Clock.new(base_key + ":time", self)
-      @mutex = Mutex.new
-    end
-
-    def synchronize
-      @mutex.synchronize { yield }
+      @clock = Clock.new(base_key + ":time", @redis)
     end
 
     def current_time
@@ -34,11 +28,8 @@ module Reliable
     end
 
     def push(value)
-      redis_multi do
-        UUID.new(current_time) do |uuid|
-          redis.call! "SET", uuid.to_s, value
-          redis.call! "LPUSH", pending.key, uuid.to_s
-        end
+      UUID.new(current_time) do |uuid|
+        @redis.push(pending.key, uuid.to_s, value)
       end
     end
     alias_method :<<, :push
@@ -58,7 +49,7 @@ module Reliable
       if uuid && item
         catch(:failed) do
           process uuid, item, &block
-          remove uuid
+          remove_from_processing uuid
         end
       end
 
@@ -91,34 +82,30 @@ module Reliable
     end
 
     def pending
-      @pending ||= List.new(@pending_key, redis)
+      @pending ||= List.new(@pending_key, @redis)
     end
 
     def processing
-      @processing ||= List.new(@processing_key, redis)
+      @processing ||= List.new(@processing_key, @redis)
     end
 
     def failed_processing
-      @failed_processing ||= List.new(@failed_processing_key, redis)
+      @failed_processing ||= List.new(@failed_processing_key, @redis)
     end
 
     def failed_removing
-      @failed_removing ||= List.new(@failed_removing_key, redis)
+      @failed_removing ||= List.new(@failed_removing_key, @redis)
     end
 
     def stale_items
       processing.all.select { |uuid_key| uuid = UUID.parse(uuid_key); current_time - uuid.time > PROCESSING_TIMEOUT }
     end
 
-    def redis
-      Reliable.redis
-    end
-
     def fetch_item
-      uuid = synchronize { redis.call!("BRPOPLPUSH", pending.key, processing.key, POP_TIMEOUT) }
+      uuid = @redis.brpoplpush(pending.key, processing.key)
 
       if uuid
-        [uuid, synchronize { redis.call!("GET", uuid) }]
+        [uuid, @redis.get(uuid)]
       else
         [nil, nil]
       end
@@ -136,38 +123,20 @@ module Reliable
       end
     rescue StandardError => e
       move uuid, processing.key, failed_processing.key
+      # TODO: if #move raises, what do we do?
       notify(e) # order here matters, we want to move to failures before we try to do anything else
       throw :failed
     end
 
-    def redis_multi
-      synchronize do
-        begin
-          redis.call! "MULTI"
-          yield
-          redis.call! "EXEC"
-        rescue StandardError => e
-          redis.call! "DISCARD"
-          raise e
-        end
-      end
-    end
-
-    def remove(uuid)
-      redis_multi do
-        redis.call! "LREM", processing.key, 0, uuid
-        redis.call! "DEL", uuid
-      end
+    def remove_from_processing(uuid)
+      @redis.remove(processing.key, uuid)
     rescue StandardError => e
       notify(e) # order here matters, if this erorrs it was probably redis and the next #move call will probably fail
       move uuid, processing.key, failed_removing.key
     end
 
     def move(value, from, to)
-      redis_multi do
-        redis.call! "LREM", from, 0, value
-        redis.call! "LPUSH", to, value
-      end
+      @redis.move(value, from, to)
     rescue StandardError => e
       notify(e) # yes, we need to notify here because if this fails we will never make it to the notify in #process
       raise

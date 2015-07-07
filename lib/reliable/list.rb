@@ -8,11 +8,11 @@ module Reliable
     end
 
     def all
-      @redis.call "LRANGE", @key, 0, -1
+      @redis.get_all(key)
     end
 
     def size
-      @redis.call "LLEN", @key
+      @redis.size(key)
     end
   end
 end

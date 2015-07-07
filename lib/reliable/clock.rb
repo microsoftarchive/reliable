@@ -1,8 +1,8 @@
 module Reliable
   class Clock
-    def initialize(key, host)
+    def initialize(key, redis)
       @key = key.to_s
-      @host = host
+      @redis = redis
       @mutex = Mutex.new
       store_time
     end
@@ -14,7 +14,7 @@ module Reliable
     end
 
     def move_time_forward
-      @host.redis.call "INCR", @key
+      @redis.incr @key
       store_time
     end
 
@@ -40,7 +40,7 @@ module Reliable
     end
 
     def fetch_time
-      @host.redis.call("GET", @key).to_i
+      @redis.get(@key).to_i
     end
 
     def stop_periodically_moving_time_forward
