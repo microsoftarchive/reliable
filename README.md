@@ -1,3 +1,6 @@
+[![Build
+Status](https://travis-ci.org/wunderlist/reliable.svg?branch=master)](https://travis-ci.org/wunderlist/reliable)
+
 # Reliable is.
 
 Redis is a great storage service for building a reliable queue. That's
