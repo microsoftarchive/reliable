@@ -25,8 +25,8 @@ module Reliable
     @redis or raise NotConnected
   end
 
-  def self.redis=(new_redis)
-    @redis = Reliable::Redis.new(new_redis)
+  def self.configure_redis(config)
+    @redis = Reliable::Redis.new(config)
   end
 
   class NullLogger

@@ -2,8 +2,8 @@ require 'redic'
 
 module Reliable
   class ThreadsafeRedisConnection
-    def initialize(connection)
-      @connection = connection
+    def initialize(config)
+      @connection = Redic.new(config)
       @mutex = Mutex.new
     end
 
