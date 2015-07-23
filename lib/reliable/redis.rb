@@ -1,18 +1,10 @@
-require 'redic'
+require 'delegate'
+require_relative 'threadsafe_redis_connection'
 
 module Reliable
-  class Redis
+  class Redis < SimpleDelegator
     def initialize(connection)
-      @connection = connection
-      @mutex = Mutex.new
-    end
-
-    def synchronize
-      @mutex.synchronize { yield }
-    end
-
-    def command(*args)
-      @connection.call!(*args)
+      super ThreadsafeRedisConnection.new(connection)
     end
 
     def keys(pattern)
@@ -54,19 +46,6 @@ module Reliable
     def brpoplpush(pop_key, push_key)
       synchronize do
         command "BRPOPLPUSH", pop_key, push_key, POP_TIMEOUT
-      end
-    end
-
-    def multi
-      synchronize do
-        begin
-          command "MULTI"
-          yield
-          command "EXEC"
-        rescue StandardError => e
-          command "DISCARD"
-          raise
-        end
       end
     end
 
