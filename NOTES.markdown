@@ -44,8 +44,9 @@ class Processor
     @uuid = SecureRandom.uuid
     @queue_name = queue_name
     @pending_key = "queue:#{queue_name}:pending"
+    @failed_key = "queue:#{name}:failed"
     @workers = concurrency.times.map do
-      Worker.new(process_uuid: @uuid, pending_key: @pending_key, queue_name: @queue_name, &work)
+      Worker.new(process_uuid: @uuid, pending_key: @pending_key, failed_key: @failed_key, queue_name: @queue_name, &work)
     end
   end
 
@@ -62,12 +63,12 @@ class Processor
   end
 end
 
-process = Processor.new(queue_name: "incoming_stuff", concurrency: 6) do |stuff|
+processor = Processor.new(queue_name: "incoming_stuff", concurrency: 6) do |stuff|
   SendyThingy.send_to_other_thing(stuff)
 end
 
 Signal.tap("TERM") do
-  process.stop
+  processor.stop
   sleep 5
 end
 
@@ -80,17 +81,18 @@ An worker must connect to redis and then try to read values over into it's list 
 
 ```ruby
 class Worker
-  def initialize(process_uuid:, pending_key:, queue_name:, &work)
+  def initialize(process_uuid:, pending_key:, failed_key:, queue_name:, &work)
     @uuid = SecureRandom.uuid
     @work = work
     @pending_key = pending_key
+    @failed_key = failed_key
     @processing_key = "queue:#{queue_name}:process:#{process_uuid}:worker:#{@uuid}:processing"
     @thread = create_thread
     @mutex = Mutex.new
   end
 
   def create_thread
-    Thread.new(@pending_key, @processing_key, @work) do |pending_key, processing_key, work|
+    Thread.new(@pending_key, @processing_key, @failed_key, @work) do |pending_key, processing_key, failed_key, work|
       conn = Redic.new
       loop do
         @mutex.synchronize { break if @stopping }
@@ -99,9 +101,20 @@ class Worker
         next if key.nil?
 
         item = conn.send "GET", key
-        work.call(item) unless item.nil?
-
-        conn.send "LPOP", processing_key
+        if item.nil?
+          conn.send "LPOP", processing_key
+        else
+          begin
+            work.call(item)
+            conn.send "LPOP", processing_key
+          rescue RedisOrNetworkError
+            begin
+              conn.send "BRPOPLPUSH", processing_key, failed_key, 2
+            rescue
+              log_error!(processing_key)
+            end
+          end
+        end
       end
       conn.quit
     end
