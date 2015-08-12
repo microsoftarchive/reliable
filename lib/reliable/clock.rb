@@ -4,16 +4,16 @@ module Reliable
       @key = key.to_s
       @redis = redis
       @mutex = Mutex.new
-      store_time
+      store_time(fetch_time)
     end
 
     def current_time
       @last_time
     end
 
-    def store_time(new_time = nil)
+    def store_time(new_time)
       @mutex.synchronize do
-        @last_time = new_time || fetch_time
+        @last_time = new_time
       end
     end
 
