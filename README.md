@@ -110,3 +110,45 @@ Reliable[:emails].peach(concurrency: 6) do |message|
   Emailer.new(hash).deliver
 end
 ```
+
+## Rails
+
+Probably best to create an initializer:
+
+```ruby
+# config/initializers/reliable.rb
+Reliable[:emails].periodically_move_time_forward
+```
+
+Then in a controller one might:
+
+```ruby
+# app/controllers/users_controller.rb
+class UsersController < ApplicationController
+  def create
+    @user = User.create!(params.require(:email))
+    Reliable[:emails].push JSON.generate({
+      user_id: @user.id
+    })
+    redirect_to root_url
+  end
+end
+```
+
+Then, in a worker file:
+
+```ruby
+# app/workers/emails_worker.rb
+Reliable[:emails].peach(6) do |message|
+  hash = JSON.parse(message)
+  user = User.find(hash[:user_id])
+  Emailer.welcome_email(user).deliver
+end
+```
+
+And maybe one would have a `Procfile` like this:
+
+```
+web: bin/rails s -p$PORT
+worker: bin/rails r app/workers/emails_worker.rb
+```
