@@ -86,8 +86,8 @@ urls.each do |url|
 end
 ```
 
-And if the developer wants, they can get an enumerator object of
-the processor and interact with it as necessary:
+And if the developer wants, they can get an enumerator object and
+interact with it as necessary:
 
 ```ruby
 enumerator = Reliable[:ids].to_enum { |id| notify(id) }
