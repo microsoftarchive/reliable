@@ -44,6 +44,7 @@ module Reliable
           end
         end
       end
+      @time_travel_thread.abort_on_exception = true
     end
 
     def fetch_time
