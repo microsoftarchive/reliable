@@ -75,6 +75,17 @@ Reliable[:urls].take(2) do |url|
 end
 ```
 
+Or if you just want the urls themselves as an array:
+
+```ruby
+urls = Reliable[:urls].take(2)
+
+urls.each do |url|
+  content = open(url)
+  PersistentStore.store(content)
+end
+```
+
 And if the developer wants, they can get an enumerator object of
 the processor and interact with it as necessary:
 

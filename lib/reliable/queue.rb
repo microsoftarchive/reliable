@@ -46,6 +46,7 @@ module Reliable
     end
 
     def to_enum(&work)
+      work ||= ->(item) { item }
       worker = create_worker(&work)
       Enumerator.new do |y|
         loop do                   # forever

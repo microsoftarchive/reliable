@@ -40,12 +40,7 @@ module Reliable
     end
 
     def process(item, &block)
-      if block_given?
-        block.yield item
-      else
-        # NOTE: What do we do here?
-        item
-      end
+      block.yield item
     rescue StandardError => e
       @redis.rpoplpush processing.key, failed.key
       notify(e, worker: processing.key)
