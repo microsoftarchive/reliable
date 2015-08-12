@@ -11,20 +11,23 @@ module Reliable
       @last_time
     end
 
-    def store_time
+    def store_time(new_time = nil)
       @mutex.synchronize do
-        @last_time = fetch_time
+        @last_time = new_time || fetch_time
       end
     end
 
     def move_time_forward
-      @redis.incr @key
-      store_time
+      new_time = @redis.incr @key
+      store_time(new_time)
     end
 
     def time_has_progressed?
       @mutex.synchronize do
-        fetch_time > @last_time
+        remote_time = fetch_time
+        if remote_time > @last_time
+          remote_time
+        end
       end
     end
 
@@ -34,8 +37,8 @@ module Reliable
           delay_with_jitter = TIME_TRAVEL_DELAY + rand(TIME_TRAVEL_DELAY)
           sleep delay_with_jitter
 
-          if time_has_progressed?
-            store_time
+          if new_time = time_has_progressed?
+            store_time(new_time)
           else
             move_time_forward
           end
