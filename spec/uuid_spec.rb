@@ -1,4 +1,5 @@
 require "spec_helper"
+require "reliable/uuid"
 
 describe Reliable::UUID do
   describe ".parse" do

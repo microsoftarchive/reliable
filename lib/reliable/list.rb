@@ -7,12 +7,8 @@ module Reliable
       @redis = redis
     end
 
-    def all
-      @redis.get_all(key)
-    end
-
-    def size
-      @redis.size(key)
+    def llen
+      @redis.llen(key)
     end
   end
 end

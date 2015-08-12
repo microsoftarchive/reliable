@@ -7,6 +7,10 @@ module Reliable
       store_time
     end
 
+    def current_time
+      @last_time
+    end
+
     def store_time
       @mutex.synchronize do
         @last_time = fetch_time

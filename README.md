@@ -62,7 +62,7 @@ If the processing code is thread-safe, the developer can spawn any
 number of threads with `#peach`:
 
 ```ruby
-Reliable[:touches].peach(12) { |id| Model.find(id).touch }
+Reliable[:touches].peach(concurrency: 12) { |id| Model.find(id).touch }
 ```
 
 In this example 12 threads will be created and all are joined with the
@@ -80,12 +80,24 @@ Reliable[:urls].take(2) do |url|
 end
 ```
 
-And if the developer wants, they can get an enumerator object and
-interact with it as necessary:
+And if the developer wants, they can get an enumerator object of
+the processor and interact with it as necessary:
 
 ```ruby
-enumerator = Reliable[:ids].to_enum { |id| notify(id) }
+enumerator = Reliable[:ids].processor.to_enum { |id| notify(id) }
 assert_equal 0, notifications.length
 4.times { enumerator.next }
 assert_equal 4, notifications.length
+```
+
+# Time
+
+Make sure the distributed clock starts moving before you lock the main thread. Here is a full example:
+
+```ruby
+Reliable[:emails].periodically_move_time_forward
+Reliable[:emails].peach(concurrency: 6) do |message|
+  hash = JSON.generate(message)
+  Emailer.new(hash).deliver
+end
 ```

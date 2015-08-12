@@ -2,8 +2,8 @@ require 'redic'
 
 module Reliable
   class Redis
-    def initialize(connection)
-      @connection = connection
+    def initialize(&work)
+      @connection = Redic.new
       @mutex = Mutex.new
     end
 
@@ -15,45 +15,59 @@ module Reliable
       @connection.call!(*args)
     end
 
-    def keys(pattern)
-      synchronize do
-        command "KEYS", pattern
-      end
-    end
-
-    def flushdb
-      synchronize do
-        command "FLUSHDB"
-      end
+    def scommand(*args)
+      synchronize { command(*args) }
     end
 
     def get(key)
-      synchronize do
-        command "GET", key
-      end
-    end
-
-    def get_all(key)
-      synchronize do
-        command "LRANGE", key, 0, -1
-      end
+      scommand "GET", key
     end
 
     def incr(key)
-      synchronize do
-        command "INCR", key
+      scommand "INCR", key
+    end
+
+    def llen(key)
+      scommand "LLEN", key
+    end
+
+    def brpoplpush(pop_key, push_key, timeout = POP_TIMEOUT)
+      scommand "BRPOPLPUSH", pop_key, push_key, timeout
+    end
+
+    def rpoplpush(pop_key, push_key)
+      scommand "RPOPLPUSH", pop_key, push_key
+    end
+
+    def lpush(key, value)
+      scommand "LPUSH", key, value
+    end
+
+    def lpop(key)
+      scommand "LPOP", key
+    end
+
+    class Pipeline
+      def initialize(conn)
+        @connection = conn
+      end
+
+      def queue(*args)
+        @connection.queue(*args)
+      end
+      alias_method :q, :queue
+
+      def llen(key)
+        queue "LLEN", key
       end
     end
 
-    def size(key)
+    def pipeline
       synchronize do
-        command "LLEN", key
-      end
-    end
-
-    def brpoplpush(pop_key, push_key)
-      synchronize do
-        command "BRPOPLPUSH", pop_key, push_key, POP_TIMEOUT
+        @connection.reset
+        pipe = Pipeline.new(@connection)
+        yield(pipe)
+        @connection.commit
       end
     end
 
@@ -70,31 +84,29 @@ module Reliable
       end
     end
 
-    def lpush(key, value)
-      synchronize do
-        command "LPUSH", key, value
-      end
-    end
-
-    def push(list_key, key, value)
+    def set_and_lpush(list_key, key, value)
       multi do
         command "SET", key, value
         command "LPUSH", list_key, key
       end
     end
 
-    def move(value, from_key, to_key)
+    def lpop_and_del(list_key, key)
       multi do
-        command "LREM", from_key, 0, value
-        command "LPUSH", to_key, value
+        command "LPOP", list_key
+        command "DEL", key
       end
     end
 
-    def remove(list_key, key)
-      multi do
-        command "LREM", list_key, 0, key
-        command "DEL", key
+    def scan(pattern)
+      keys = []
+      cursor = "0"
+      loop do
+        cursor, list = scommand "SCAN", cursor, "MATCH", pattern
+        keys << list
+        break if cursor == "0"
       end
+      keys.flatten.compact.uniq
     end
   end
 end

@@ -1,7 +1,8 @@
 require "spec_helper"
+require "reliable/list"
 
 describe Reliable::List do
-  let(:redis) { Reliable.redis }
+  let(:redis) { Reliable::Redis.new }
   let(:key) { "foo" }
   let(:list) { described_class.new(key, redis) }
 
@@ -14,7 +15,10 @@ describe Reliable::List do
         redis.lpush "other", 4
       end
 
-      it { expect(list.all).to eql(["2","3","1"]) }
+      it {
+        keys = redis.scommand("LRANGE", key, 0, -1)
+        expect(keys).to eql(["2","3","1"])
+      }
     end
   end
 
@@ -27,7 +31,7 @@ describe Reliable::List do
         redis.lpush "other", 4
       end
 
-      it { expect(list.size).to eql(3) }
+      it { expect(list.llen).to eql(3) }
     end
   end
 end

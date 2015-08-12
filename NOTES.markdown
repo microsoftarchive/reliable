@@ -19,18 +19,17 @@ queue:#{name}:failed:count
 Knowing how many items are being processed would look like this pseudo code:
 
 ```ruby
-keys = []
-cursor = 0
-loop do
-  cursor, list = redis.send "SCAN", cursor, "queue.*.process.*.agent.*.processing"
-  keys << list
-  break if cursor == 0
+redis = Redis.new
+
+keys = redis.scan "queue.*.process.*.agent.*.processing"
+
+lengths = redis.pipeline do |pipe|
+  keys.each do |key|
+    pipe.queue "LLEN", key
+  end
 end
-redis.clear
-keys.flatten.compact.uniq.each do |key|
-  redis.queue "LLEN", key
-end
-total = redis.commit.map(&:to_i).reduce(:+)
+
+total = lengths.map(&:to_i).reduce(:+)
 ```
 
 ### Processor
@@ -40,7 +39,7 @@ A processor must generate a uuid and then start however many workers:
 ```ruby
 class Processor
   def initialize(queue_name:, concurrency:, &work)
-    @conn = Redic.new
+    @redis = Redis.new
     @uuid = SecureRandom.uuid
     @queue_name = queue_name
     @pending_key = "queue:#{queue_name}:pending"
@@ -53,8 +52,7 @@ class Processor
   def push(item)
     string = JSON.generate(item)
     uuid = SecureRandom.uuid
-    @conn.send "SET", uuid, string
-    @conn.send "LPUSH", @pending_key, uuid
+    @redis.set_and_lpush @pending_key, uuid, string
     uuid
   end
 
@@ -93,23 +91,23 @@ class Worker
 
   def create_thread
     Thread.new(@pending_key, @processing_key, @failed_key, @work) do |pending_key, processing_key, failed_key, work|
-      conn = Redic.new
+      redis = Redis.new
       loop do
         @mutex.synchronize { break if @stopping }
 
-        key = conn.send "BRPOPLPUSH", pending_key, processing_key, 2
+        key = redis.brpoplpush pending_key, processing_key, 2
         next if key.nil?
 
-        item = conn.send "GET", key
+        item = redis.get key
         if item.nil?
-          conn.send "LPOP", processing_key
+          redis.lpop processing_key
         else
           begin
             work.call(item)
-            conn.send "LPOP", processing_key
+            redis.lpop processing_key
           rescue RedisOrNetworkError
             begin
-              conn.send "BRPOPLPUSH", processing_key, failed_key, 2
+              redis.brpoplpush processing_key, failed_key, 2
             rescue
               log_error!(processing_key)
             end
