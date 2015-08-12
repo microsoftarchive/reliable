@@ -79,6 +79,7 @@ module Reliable
         Thread.new { each(&block) }
       end
 
+      threads.map { |t| t.abort_on_exception = true }
       threads.map(&:join)
     end
 
