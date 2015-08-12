@@ -12,12 +12,7 @@ Ost was the inspiration for this project. We love ost, but it lacks a few of the
 
 ## Configuring redis
 
-Reliable uses `Redic`.
-
-```ruby
-require 'reliable'
-Reliable.redis = Redic.new(ENV.fetch("REDIS_URL"))
-```
+One must set the `REDIS_URL` environment variable.
 
 ## Enqueueing messages
 
@@ -84,15 +79,18 @@ And if the developer wants, they can get an enumerator object of
 the processor and interact with it as necessary:
 
 ```ruby
-enumerator = Reliable[:ids].processor.to_enum { |id| notify(id) }
+enumerator = Reliable[:ids].to_enum { |id| notify(id) }
 assert_equal 0, notifications.length
 4.times { enumerator.next }
 assert_equal 4, notifications.length
 ```
 
-# Time
+## Time
 
-Make sure the distributed clock starts moving before you lock the main thread. Here is a full example:
+Make sure the distributed clock starts moving before you lock the main thread.
+The clock makes it possible to re-enqueue stale items.
+
+Here is a full example:
 
 ```ruby
 Reliable[:emails].periodically_move_time_forward
