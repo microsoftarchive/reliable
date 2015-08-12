@@ -26,7 +26,7 @@ describe Reliable::Clock do
     end
 
     it "won't move time forward if someone else already has" do
-      redis.set key, 1
+      redis.set key, 1 # someone else moved things to 1
       sleep 1.1
       expect(clock.current_time).to eq(1)
       sleep 1.1
