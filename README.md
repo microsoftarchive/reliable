@@ -139,7 +139,7 @@ Then, in a worker file:
 
 ```ruby
 # app/workers/emails_worker.rb
-Reliable[:emails].peach(6) do |message|
+Reliable[:emails].peach(concurrency: 6) do |message|
   hash = JSON.parse(message)
   user = User.find(hash[:user_id])
   Emailer.welcome_email(user).deliver
