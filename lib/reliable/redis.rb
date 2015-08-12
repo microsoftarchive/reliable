@@ -23,6 +23,10 @@ module Reliable
       scommand "GET", key
     end
 
+    def set(key, value)
+      scommand "SET", key, value
+    end
+
     def incr(key)
       scommand "INCR", key
     end

@@ -24,7 +24,7 @@ module Reliable
 
     def time_has_progressed?
       @mutex.synchronize do
-        fetch_time > @last_time + 1
+        fetch_time > @last_time
       end
     end
 
