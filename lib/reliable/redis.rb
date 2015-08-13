@@ -2,7 +2,7 @@ require 'redic'
 
 module Reliable
   class Redis
-    def initialize(&work)
+    def initialize
       @connection = Redic.new
       @mutex = Mutex.new
     end
