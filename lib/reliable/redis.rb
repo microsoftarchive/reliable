@@ -3,7 +3,8 @@ require 'redic'
 module Reliable
   class Redis
     def initialize
-      @connection = Redic.new
+      url = ENV.fetch("REDIS_URI", ENV.fetch("REDIS_URL"))
+      @connection = Redic.new(url)
       @mutex = Mutex.new
     end
 
