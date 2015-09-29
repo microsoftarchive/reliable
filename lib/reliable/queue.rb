@@ -2,7 +2,6 @@ require 'logger'
 require 'securerandom'
 
 require_relative '../reliable'
-require_relative 'clock'
 require_relative 'list'
 require_relative 'uuid'
 require_relative 'worker'
@@ -19,11 +18,10 @@ module Reliable
       @redis = Redis.new
       @pending_key = @base_key + ":pending"
       @failed_key = @base_key + ":failed"
-      @clock = Clock.new(base_key + ":time", @redis)
     end
 
     def current_time
-      @clock.current_time
+      @redis.time
     end
 
     def push(value)

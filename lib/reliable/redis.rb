@@ -20,6 +20,10 @@ module Reliable
       synchronize { command(*args) }
     end
 
+    def time
+      scommand("TIME").join(".")
+    end
+
     def get(key)
       scommand "GET", key
     end
