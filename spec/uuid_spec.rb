@@ -1,9 +1,10 @@
 require "spec_helper"
+require "reliable/uuid"
 
 describe Reliable::UUID do
   describe ".parse" do
     context "with well formed key" do
-      let(:time) { Time.now }
+      let(:time) { Time.now.to_f }
       let(:key) { described_class.new(time).to_s }
 
       it { expect(described_class.parse(key).to_s).to eql(key) }

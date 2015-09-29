@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'reliable/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "reliable"
+  spec.name          = "reliable-queue"
   spec.version       = Reliable::VERSION
   spec.authors       = ["myobie"]
   spec.email         = ["me@nathanherald.com"]

@@ -1,20 +1,10 @@
 require "spec_helper"
+require "reliable/queue"
 
 describe Reliable::Queue do
   let(:name) { "foo" }
   let(:queue) { described_class.new(name) }
-
-  def get_keys
-    Reliable.redis.keys "*"
-  end
-
-  def select_keys(&blk)
-    get_keys.select(&blk)
-  end
-
-  def mutation_keys
-    select_keys { |key| key =~ /^reliable:items:/ }
-  end
+  let(:redis) { Reliable::Redis.new }
 
   describe "writing and reading" do
     before do
@@ -24,8 +14,8 @@ describe Reliable::Queue do
       queue.push(3)
     end
 
-    it { expect(queue.each.take(4)).to eql(["1","5","2","3"]) }
-    it { expect(mutation_keys.length).to eql(4) }
+    it { expect(queue.take(4)).to eql(["1","5","2","3"]) }
+    it { expect(queue.total_items).to eql(4) }
   end
 
   describe "#pending" do
@@ -37,11 +27,10 @@ describe Reliable::Queue do
         queue.push(3)
       end
 
-      it { expect(queue.pending.size).to eql(4) }
-      it { expect(queue.processing.size).to eql(0) }
-      it { expect(queue.failed_processing.size).to eql(0) }
-      it { expect(queue.failed_removing.size).to eql(0) }
-      it { expect(mutation_keys.length).to eql(4) }
+      it { expect(queue.pending.llen).to eql(4) }
+      it { expect(queue.total_processing).to eql(0) }
+      it { expect(queue.failed.llen).to eql(0) }
+      it { expect(queue.total_items).to eql(4) }
     end
 
     context "with values pushed on and taken off" do
@@ -53,11 +42,10 @@ describe Reliable::Queue do
         queue.take(2)
       end
 
-      it { expect(queue.pending.size).to eql(2) }
-      it { expect(queue.processing.size).to eql(0) }
-      it { expect(queue.failed_processing.size).to eql(0) }
-      it { expect(queue.failed_removing.size).to eql(0) }
-      it { expect(mutation_keys.length).to eql(2) }
+      it { expect(queue.pending.llen).to eql(2) }
+      it { expect(queue.total_processing).to eql(0) }
+      it { expect(queue.failed.llen).to eql(0) }
+      it { expect(queue.total_items).to eql(2) }
     end
   end
 
@@ -69,11 +57,10 @@ describe Reliable::Queue do
         queue.take(2) { |item| raise("wat") if item == "fail" }
       end
 
-      it { expect(queue.pending.size).to eql(0) }
-      it { expect(queue.processing.size).to eql(0) }
-      it { expect(queue.failed_processing.size).to eql(1) }
-      it { expect(queue.failed_removing.size).to eql(0) }
-      it { expect(mutation_keys.length).to eql(1) }
+      it { expect(queue.pending.llen).to eql(0) }
+      it { expect(queue.total_processing).to eql(0) }
+      it { expect(queue.failed.llen).to eql(1) }
+      it { expect(queue.total_items).to eql(1) }
     end
 
     context "take multiple failures" do
@@ -86,11 +73,10 @@ describe Reliable::Queue do
         queue.to_enum { |item| raise("wat") if item == "fail" }.take(4)
       end
 
-      it { expect(queue.pending.size).to eql(1) }
-      it { expect(queue.processing.size).to eql(0) }
-      it { expect(queue.failed_processing.size).to eql(2) }
-      it { expect(queue.failed_removing.size).to eql(0) }
-      it { expect(mutation_keys.length).to eql(3) } # the 2 failed ones and the 1 that hasn't been processed yet
+      it { expect(queue.pending.llen).to eql(1) }
+      it { expect(queue.total_processing).to eql(0) }
+      it { expect(queue.failed.llen).to eql(2) }
+      it { expect(queue.total_items).to eql(3) } # the 2 failed ones and the 1 that hasn't been processed yet
     end
   end
 end

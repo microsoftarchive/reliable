@@ -12,12 +12,7 @@ Ost was the inspiration for this project. We love ost, but it lacks a few of the
 
 ## Configuring redis
 
-Reliable uses `Redic`.
-
-```ruby
-require 'reliable'
-Reliable.redis = Redic.new(ENV.fetch("REDIS_URL"))
-```
+One must set the `REDIS_URL` environment variable.
 
 ## Enqueueing messages
 
@@ -62,7 +57,7 @@ If the processing code is thread-safe, the developer can spawn any
 number of threads with `#peach`:
 
 ```ruby
-Reliable[:touches].peach(12) { |id| Model.find(id).touch }
+Reliable[:touches].peach(concurrency: 12) { |id| Model.find(id).touch }
 ```
 
 In this example 12 threads will be created and all are joined with the
@@ -80,6 +75,17 @@ Reliable[:urls].take(2) do |url|
 end
 ```
 
+Or if you just want the urls themselves as an array:
+
+```ruby
+urls = Reliable[:urls].take(2)
+
+urls.each do |url|
+  content = open(url)
+  PersistentStore.store(content)
+end
+```
+
 And if the developer wants, they can get an enumerator object and
 interact with it as necessary:
 
@@ -88,4 +94,61 @@ enumerator = Reliable[:ids].to_enum { |id| notify(id) }
 assert_equal 0, notifications.length
 4.times { enumerator.next }
 assert_equal 4, notifications.length
+```
+
+## Time
+
+Make sure the distributed clock starts moving before you lock the main thread.
+The clock makes it possible to re-enqueue stale items.
+
+Here is a full example:
+
+```ruby
+Reliable[:emails].periodically_move_time_forward
+Reliable[:emails].peach(concurrency: 6) do |message|
+  hash = JSON.generate(message)
+  Emailer.new(hash).deliver
+end
+```
+
+## Rails
+
+Probably best to create an initializer:
+
+```ruby
+# config/initializers/reliable.rb
+Reliable[:emails].periodically_move_time_forward
+```
+
+Then in a controller one might:
+
+```ruby
+# app/controllers/users_controller.rb
+class UsersController < ApplicationController
+  def create
+    @user = User.create!(params.require(:email))
+    Reliable[:emails].push JSON.generate({
+      user_id: @user.id
+    })
+    redirect_to root_url
+  end
+end
+```
+
+Then, in a worker file:
+
+```ruby
+# app/workers/emails_worker.rb
+Reliable[:emails].peach(concurrency: 6) do |message|
+  hash = JSON.parse(message)
+  user = User.find(hash[:user_id])
+  Emailer.welcome_email(user).deliver
+end
+```
+
+And maybe one would have a `Procfile` like this:
+
+```
+web: bin/rails s -p$PORT
+worker: bin/rails r app/workers/emails_worker.rb
 ```

@@ -15,20 +15,6 @@ module Reliable
     @queues[queue]
   end
 
-  def self.stop
-    @queues.values.map(&:stop)
-  end
-
-  NotConnected = Class.new(StandardError)
-
-  def self.redis
-    @redis or raise NotConnected
-  end
-
-  def self.redis=(new_redis)
-    @redis = Reliable::Redis.new(new_redis)
-  end
-
   class NullLogger
     def debug(*); end
     def info(*); end
