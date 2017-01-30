@@ -1,3 +1,7 @@
+# Reliable is no longer maintained. The code is still public for reference.
+
+- - -
+
 [![Build
 Status](https://travis-ci.org/wunderlist/reliable.svg?branch=master)](https://travis-ci.org/wunderlist/reliable)
 
